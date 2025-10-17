@@ -1,4 +1,4 @@
-# 🌱 HydroSentinel
+# 🌱 HydroSentinel Core
 
 **Hydro-Balkonpflanzen Automatisierung & Luft-/Wasserqualitätsüberwachung**
 **Smartes Monitoring & Pflege für Hydrokultur-Balkonpflanzen**
@@ -14,10 +14,9 @@ Ein IoT-System zur vollautomatischen Überwachung und Pflege von Balkonpflanzen 
 - **Nährstoffmessung:** TDS-Sensor (ppm, Leitfähigkeit)
 - **Lichtmessung:** LDR-Sensor (Helligkeit, Tageslicht)
 - **Temperatur & Luftfeuchte:** DHT11/DHT22
-- **Krankheitsüberwachung:** IR-Kamera (Pflanzenstress, Pilzbefall)
 - **Audio:** Dual-MEMS-Mikrofone (Schall, Störungserkennung)
 - **Radioaktivität:** Geigerzähler (Umweltmonitoring)
-- **Pflege & Steuerung:** Relais für Pumpen, LED-Growlights, Lüfter
+- **Pflege & Steuerung:** Relais für Pumpen,
 
 **Features:**
 
@@ -64,11 +63,13 @@ Arduino Mega 2560
 
 ---
 
-## � Beispiel-Datenstruktur (CSV)
+## 🕒 Beispiel-Datenstruktur (CSV, UTC)
 
-| DateTime         | Temp | Humidity | Light | TDS | WaterLevel | MQ2-MQ135 | Audio1/2 | IR-Status | Radiation |
+Alle Zeitstempel werden in UTC gespeichert und angezeigt.
+
+| DateTime (UTC)   | Temp | Humidity | Light | TDS | WaterLevel | MQ2-MQ135 | Audio1/2 | IR-Status | Radiation |
 | ---------------- | ---- | -------- | ----- | --- | ---------- | --------- | -------- | --------- | --------- |
-| 2025-10-16 12:00 | 24.5 | 60.2     | 320   | 850 | OK         | ...       | ...      | Healthy   | 0         |
+| 2025-10-16 10:00 | 24.5 | 60.2     | 320   | 850 | OK         | ...       | ...      | Healthy   | 0         |
 
 ---
 
@@ -82,8 +83,6 @@ Arduino Mega 2560
 ## � Pflege & Automatisierung
 
 - Automatische Nährstoffgabe & Bewässerung
-- LED-Growlights nach Lichtmessung
-- Lüftersteuerung nach Luftqualität
 - Benachrichtigung bei Krankheitserkennung (IR-Kamera)
 
 ---
@@ -100,7 +99,7 @@ Arduino Mega 2560
 | IR-Kamera      | Krankheits-/Stressüberwachung  |
 | MEMS-Mikrofone | Audio/Schall/Störungserkennung |
 | Geigerzähler   | Radioaktivität                 |
-| RTC            | Zeitstempel für Logging        |
+| RTC            | Zeitstempel für Logging (UTC)  |
 | Relais         | Steuerung Pumpen, LEDs, Lüfter |
 
 ---
@@ -108,6 +107,11 @@ Arduino Mega 2560
 ## 📜 Lizenz
 
 MIT License – Freie Nutzung für Forschung & Citizen Science.
+
+---
+
+**Hinweis:**
+Alle Zeitstempel, Log-Dateien und CSV-Ausgaben verwenden UTC. Es findet keine automatische Umstellung auf Sommer-/Winterzeit statt. Für lokale Zeit bitte nachträglich umrechnen.
 
 ---
 

@@ -1,3 +1,6 @@
+// Interruptbasierte Radioaktivitätszählung (Geigerzähler)
+void initRadiationSensor();
+unsigned long getRadiationCountAndReset();
 /*
  * Sensoren-Modul für das Umweltkontrollsystem
  * Verwaltet alle Sensor-Funktionen (Temperatur, Gas, Radioaktivität)
@@ -14,9 +17,6 @@
 // ==============================================
 
 // extern OneWire temperatureSensor;  // DEAKTIVIERT
-extern bool lastRadiationState;       ///< Letzter digitaler Zustand des Radioaktivitätssensors
-extern int radiationCounter;          ///< Gesamtzähler für Radioaktivitätsereignisse seit System-Start
-extern unsigned long lastRadiationCheck; ///< Zeitstempel der letzten Radioaktivitätsprüfung (millis)
 
 // ==============================================
 // FUNKTIONS-DEKLARATIONEN
@@ -106,61 +106,6 @@ void readAllGasSensors(int* values);
  */
 void printGasSensorValues(int* values);
 
-// Radioaktivitäts-Sensor
-/**
- * @brief Initialisiert den Radioaktivitätssensor für hochfrequente Messung.
- *
- * Konfiguriert Pin 29 als digitalen Eingang mit Pull-up Widerstand.
- * Da dieser Pin nicht interrupt-fähig ist, muss checkRadiationSensor()
- * sehr häufig aufgerufen werden (mindestens alle 10ms für 6+ CPS).
- */
-void initRadiationSensor();
-
-/**
- * @brief Prüft den Radioaktivitätssensor auf neue Ereignisse.
- *
- * WICHTIG: Muss sehr häufig aufgerufen werden (alle 5-10ms) für
- * zuverlässige Erkennung von bis zu 6+ Clicks per Second.
- * Erkennt fallende Flanken (HIGH->LOW) als Geigerzähler-Impulse.
- */
-void checkRadiationSensor();
-
-/**
- * @brief Gibt die Gesamtanzahl der Radioaktivitätsereignisse zurück.
- *
- * Liefert die Summe aller erkannten Radioaktivitätsimpulse seit
- * dem System-Start oder dem letzten Reset.
- *
- * @return Gesamtzahl der gezählten Radioaktivitätsereignisse
- */
-int getRadiationCount();
-
-/**
- * @brief Gibt die aktuelle Impulsrate in Clicks per Second zurück.
- *
- * Berechnet die Anzahl der Radioaktivitätsereignisse in der aktuellen
- * oder letzten vollständigen Sekunde.
- *
- * @return Anzahl Clicks per Second (CPS) als Maß für Radioaktivität
- */
-int getRadiationClicksPerSecond();
-int getRadiationClicksPer2Seconds();
-
-/**
- * @brief Setzt den Radioaktivitätszähler auf Null zurück.
- *
- * Löscht alle Zählerstände und startet die Messung neu.
- * Nützlich für periodische Messungen oder Kalibrierung.
- */
-void resetRadiationCounter();
-
-/**
- * @brief Gibt detaillierte Radioaktivitätsstatistiken aus.
- *
- * Zeigt umfassende Informationen über aktuelle und vergangene
- * Radioaktivitätsmessungen, einschließlich Trends und Mittelwerte.
- */
-void printRadiationStats();
 
 // Mikrofon-Sensoren
 /**

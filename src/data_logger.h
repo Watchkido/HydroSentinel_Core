@@ -121,9 +121,10 @@ bool logData(const LogEntry* entry);
  * @param temperature_dht Temperaturwert vom DHT11-Sensor in °C
  * @param humidity Luftfeuchtigkeitswert in %
  * @param rtc Zeiger auf RTC-Zeitdaten
+ * @param tdsValue TDS-Wert in ppm
  * @return true wenn Daten erfolgreich geloggt wurden, false bei Fehlern
  */
-bool logSensorData(float temperature_dht, float humidity, const RTCData* rtc);
+bool logSensorData(float temperature_dht, float humidity, const RTCData* rtc, float tdsValue);
 
 /**
  * @brief Formatiert einen LogEntry als lesbaren String.

@@ -144,9 +144,7 @@ void loop() {
   }
 
 
-  // HOCHFREQUENZ: Radioaktivitäts-Sensor prüfen (für 6+ CPS)
-  // WICHTIG: Läuft jeden Loop-Durchgang für maximale Genauigkeit
-  checkRadiationSensor();
+  // HOCHFREQUENZ: Radioaktivitäts-Sensor läuft jetzt interruptbasiert
 
   // OLED Display aktualisieren (alle 2 Sekunden)
   updateDisplay();
@@ -224,6 +222,7 @@ void performDataLogging() {
   }
   
   // Daten protokollieren mit Retry-Mechanismus (non-blocking)
+  float tdsValue = readTDSSensor();
   if (isSDCardAvailable()) {
     bool logSuccess = false;
     for (int retry = 0; retry < 3 && !logSuccess; retry++) {
@@ -232,21 +231,18 @@ void performDataLogging() {
         DEBUG_PRINTLN(retry);
         // Kein delay - sofortiger Retry
       }
-      
-      logSuccess = logSensorData(dht_temperature, humidity, &currentTime);
-      
+      logSuccess = logSensorData(dht_temperature, humidity, &currentTime, tdsValue);
       if (!logSuccess) {
         DEBUG_PRINT(F("FEHLER: Datenprotokollierung fehlgeschlagen! Versuch: "));
         DEBUG_PRINTLN(retry + 1);
       }
     }
-    
     if (!logSuccess) {
       DEBUG_PRINTLN(F("KRITISCH: Alle Log-Versuche fehlgeschlagen!"));
     }
   } else {
     // Fallback: Nur Serial-Ausgabe
-    printDataToSerial(dht_temperature, humidity, &currentTime);
+    printDataToSerial(dht_temperature, humidity, &currentTime, tdsValue);
   }
 }
 
@@ -262,48 +258,38 @@ void performSensorReadings() {
   if (readDHTSensor(&dht_temp, &humidity)) {
     printDHTValues(dht_temp, humidity);
   }
-  
+
   // Lichtsensor lesen und ausgeben
   int lightLevel = readLightSensor();
   float lightPercent = getLightPercent();
   printLightLevel(lightLevel, lightPercent);
-  
+
   // Gas-Sensoren lesen und ausgeben
   int gasSensors[9];
   readAllGasSensors(gasSensors);
-  
-  #if DEBUG_ENABLED
-    // Detaillierte Sensor-Ausgabe nur bei aktiviertem Debug
-    printGasSensorValues(gasSensors);
-  #endif
-  
+
+#if DEBUG_ENABLED
+  // Detaillierte Sensor-Ausgabe nur bei aktiviertem Debug
+  printGasSensorValues(gasSensors);
+#endif
+
   // Mikrofone lesen
   int microphones[2];
   readAllMicrophones(microphones);
-  
-  //DEBUG_PRINT(F("Mikrofone: "));
-  //DEBUG_PRINT(microphones[0]);
-  //DEBUG_PRINT(F(", "));
-  //DEBUG_PRINTLN(microphones[1]);
-  
-  // Radioaktivität der letzten 2 Sekunden aufsummieren
-  int radiationCPS = getRadiationClicksPer2Seconds();
-  //DEBUG_PRINT(F("Radioaktivität: "));
-  //DEBUG_PRINT(radiationCPS);
-  //DEBUG_PRINTLN(F(" Klicks/s"));
-  
-  // KOMPAKTE ÜBERSICHTS-AUSGABE für bessere Lesbarkeit
-  printCompactStatus(dht_temp, humidity, lightLevel, radiationCPS, gasSensors, microphones);
-  
-  // Detaillierte Radioaktivitäts-Statistik alle 5 Sekunden
-  static unsigned long lastStatsTime = 0;
-  if (millis() - lastStatsTime > 5000) {
-    printRadiationStats();
-    lastStatsTime = millis();
-  }
+
+  // TDS-Sensor lesen
+  float tdsValue = readTDSSensor();
+
+  // Radioaktivität: Wert aus neuer Logik holen
+  int radiationCPS = getRadiationCountAndReset();
+
+  // KOMPAKTE ÜBERSICHTS-AUSGABE für bessere Lesbarkeit (jetzt mit TDS)
+  printCompactStatus(dht_temp, humidity, lightLevel, radiationCPS, gasSensors, microphones, tdsValue);
+
+  // Detaillierte Radioaktivitäts-Statistik entfällt (alte Funktion entfernt)
 }
 
-void printDataToSerial(float dht_temp, float humidity, const RTCData* rtc) {
+void printDataToSerial(float dht_temp, float humidity, const RTCData* rtc, float tdsValue) {
   // Kompakte Serial-Ausgabe
   DEBUG_PRINT(F("Daten: "));
   
@@ -321,6 +307,9 @@ void printDataToSerial(float dht_temp, float humidity, const RTCData* rtc) {
   DEBUG_PRINT(F("°C "));
   Serial.print(humidity, 1);
   DEBUG_PRINT(F("% ; "));
+  DEBUG_PRINT(F("TDS: "));
+  Serial.print(tdsValue, 0);
+  DEBUG_PRINT(F("ppm ; "));
   
   
   // Zeit
@@ -335,7 +324,7 @@ void printDataToSerial(float dht_temp, float humidity, const RTCData* rtc) {
   DEBUG_PRINTLN(rtc->second);
 }
 
-void printCompactStatus(float temp, float hum, int light, int rad, int* gas, int* mic) {
+void printCompactStatus(float temp, float hum, int light, int rad, int* gas, int* mic, float tdsValue) {
   //DEBUG_PRINTLN(F("========== SENSOR STATUS =========="));
   
   // Zeile 1: Umweltdaten
@@ -343,11 +332,13 @@ void printCompactStatus(float temp, float hum, int light, int rad, int* gas, int
   //Serial.print(temp, 1);
   //DEBUG_PRINT(F("°C "));
   //Serial.print(hum, 1);
- // DEBUG_PRINT(F("% | Licht: "));
+  //DEBUG_PRINT(F("% | Licht: "));
   //DEBUG_PRINT(light);
   //DEBUG_PRINT(F(" | RAD: "));
   //DEBUG_PRINT(rad);
-  //DEBUG_PRINTLN(F(" CPS"));
+  //DEBUG_PRINT(F(" CPS | TDS: "));
+  //Serial.print(tdsValue, 0);
+  //DEBUG_PRINTLN(F(" ppm"));
   
   
   // Zeile 3: Gas-Sensoren kompakt

@@ -145,103 +145,47 @@ void generateFilename(char* filename, uint8_t filenameSize) {
 // DATENPROTOKOLLIERUNG
 // ==============================================
 
-bool logSensorData(float temperature_dht, float humidity, const RTCData* rtc) {
+bool logSensorData(float temperature_dht, float humidity, const RTCData* rtc, float tdsValue) {
   if (!sdCardInitialized || strlen(globalLogFilename) == 0) {
     DEBUG_PRINTLN(F("FEHLER: Kein Log-File!"));
     return false;
   }
-    // Mikrofone lesen (lokal begrenzt)  
-    int microphones[MAX_MICROPHONES];
-    readAllMicrophones(microphones);
+  int microphones[2];
+  readAllMicrophones(microphones);
+  int gasSensors[9];
+  readAllGasSensors(gasSensors);
+  int radiationCount = getRadiationCountAndReset();
 
-    // TDS-Sensor auslesen
-    float tdsValue = readTDSSensor();
-
-    // Radioaktivität (Klicks pro Sekunde für CSV)
-    int radiationCount = getRadiationClicksPerSecond();
-
-    // Kompakte CSV-Zeile in einem Zug schreiben 
-    String csvLine = "";
-
-    // 1️⃣ DateTime an den Anfang
-    if (rtc->year > 2000) {
-      char dateTimeStr[40];
-      formatLocalDateTime(rtc, dateTimeStr, sizeof(dateTimeStr));
-      csvLine += dateTimeStr;
-    } else {
-      csvLine += "----/--/-- --:--:-- MEZ";
-    }
-    csvLine += ",";
-
-    // 2️⃣ Restliche Felder
-    csvLine += timestamp; csvLine += ",";
-    csvLine += String(temperature_dht, 1); csvLine += ",";
-    csvLine += String(humidity, 1); csvLine += ",";
-
-    int lightLevel = readLightSensor();
-    float lightPercent = getLightPercent();
-    csvLine += String(lightLevel); csvLine += ",";
-    csvLine += String(lightPercent, 1); csvLine += ",";
-
-    // 3️⃣ Gassensoren
-    for (uint8_t i = 0; i < MAX_GAS_SENSORS; i++) {
-      csvLine += String(gasSensors[i]);
-      csvLine += ",";
-    }
-
-    // 4️⃣ Mikrofone
-    csvLine += String(microphones[0]); csvLine += ",";
-    csvLine += String(microphones[1]); csvLine += ",";
-
-    // 5️⃣ TDS-Sensor
-    csvLine += String(tdsValue, 1); csvLine += ",";
-
-    // 6️⃣ Radioaktivität
-    csvLine += String(radiationCount);
-
-    // 7️⃣ Ausgabe
-    Serial.println(csvLine);
-    logFile.println(csvLine);
-
-    // WICHTIG: Sofort synchronisieren und schließen
-    logFile.flush();
-    logFile.close();
-
-    // Serial-Ausgabe: Exakt das gleiche wie auf SD-Karte geschrieben
-    //DEBUG_PRINT(F("JSON: "));
-    //DEBUG_PRINTLN(csvLine);  // Zeigt die komplette CSV-Zeile an
-
-    return true;
-
-  // 3️⃣ Gassensoren
-  for (uint8_t i = 0; i < MAX_GAS_SENSORS; i++) {
+  String csvLine = "";
+  if (rtc->year > 2000) {
+    char dateTimeStr[40];
+    formatLocalDateTime(rtc, dateTimeStr, sizeof(dateTimeStr));
+    csvLine += dateTimeStr;
+  } else {
+    csvLine += "----/--/-- --:--:-- MEZ";
+  }
+  csvLine += ",";
+  csvLine += String(temperature_dht, 1); csvLine += ",";
+  csvLine += String(humidity, 1); csvLine += ",";
+  for (int i = 0; i < 9; i++) {
     csvLine += String(gasSensors[i]);
     csvLine += ",";
   }
-
-  // 4️⃣ Mikrofone
-  csvLine += String(microphones[0]); csvLine += ",";
-  csvLine += String(microphones[1]); csvLine += ",";
-
-  // 5️⃣ TDS-Sensor
-  float tdsValue = readTDSSensor();
-  csvLine += String(tdsValue, 1); csvLine += ",";
-
-  // 6️⃣ Radioaktivität
+  for (int i = 0; i < 2; i++) {
+    csvLine += String(microphones[i]);
+    csvLine += ",";
+  }
+  csvLine += String(tdsValue, 0); csvLine += ",";
   csvLine += String(radiationCount);
 
-  // 7️⃣ Ausgabe
-  Serial.println(csvLine);
+  File logFile = SD.open(globalLogFilename, FILE_WRITE);
+  if (!logFile) {
+    DEBUG_PRINTLN(F("FEHLER: Kann Log-Datei nicht öffnen!"));
+    return false;
+  }
   logFile.println(csvLine);
-  
-  // WICHTIG: Sofort synchronisieren und schließen
-  logFile.flush();
   logFile.close();
-  
-  // Serial-Ausgabe: Exakt das gleiche wie auf SD-Karte geschrieben
-  //DEBUG_PRINT(F("JSON: "));
- // DEBUG_PRINTLN(csvLine);  // Zeigt die komplette CSV-Zeile an
-
+  Serial.println(csvLine);
   return true;
 }
 

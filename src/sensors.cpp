@@ -1,68 +1,8 @@
-// ==============================================
-// TDS SENSOR (WASSERQUALITÄT)
-// ==============================================
-
-#define TDS_VREF 5.0
-#define TDS_SCOUNT 30
-
-static int tdsAnalogBuffer[TDS_SCOUNT];
-static int tdsAnalogBufferTemp[TDS_SCOUNT];
-static int tdsAnalogBufferIndex = 0;
-
+// Dummy-Initialisierung für TDS-Sensor (wird im System erwartet)
 void initTDSSensor() {
-  pinMode(TDS_SENSOR_PIN, INPUT);
-  tdsAnalogBufferIndex = 0;
+  // Für diesen Sensor ist keine Initialisierung nötig
 }
 
-float getMedianNum(int bArray[], int iFilterLen) {
-  int bTab[iFilterLen];
-  for (byte i = 0; i < iFilterLen; i++)
-    bTab[i] = bArray[i];
-  int i, j, bTemp;
-  for (j = 0; j < iFilterLen - 1; j++) {
-    for (i = 0; i < iFilterLen - j - 1; i++) {
-      if (bTab[i] > bTab[i + 1]) {
-        bTemp = bTab[i];
-        bTab[i] = bTab[i + 1];
-        bTab[i + 1] = bTemp;
-      }
-    }
-  }
-  if ((iFilterLen & 1) > 0)
-    bTemp = bTab[(iFilterLen - 1) / 2];
-  else
-    bTemp = (bTab[iFilterLen / 2] + bTab[iFilterLen / 2 - 1]) / 2;
-  return bTemp;
-}
-
-float readTDSSensor(float temperature) {
-  static unsigned long lastSampleTime = 0;
-  if (millis() - lastSampleTime > 40U) {
-    lastSampleTime = millis();
-    tdsAnalogBuffer[tdsAnalogBufferIndex] = analogRead(TDS_SENSOR_PIN);
-    tdsAnalogBufferIndex++;
-    if (tdsAnalogBufferIndex == TDS_SCOUNT)
-      tdsAnalogBufferIndex = 0;
-  }
-
-  static unsigned long lastCalcTime = 0;
-  static float tdsValue = 0;
-  if (millis() - lastCalcTime > 800U) {
-    lastCalcTime = millis();
-    for (int i = 0; i < TDS_SCOUNT; i++)
-      tdsAnalogBufferTemp[i] = tdsAnalogBuffer[i];
-    float averageVoltage = getMedianNum(tdsAnalogBufferTemp, TDS_SCOUNT) * (float)TDS_VREF / 1024.0;
-    float compensationCoefficient = 1.0 + 0.02 * (temperature - 25.0);
-    float compensationVoltage = averageVoltage / compensationCoefficient;
-    tdsValue = (133.42 * compensationVoltage * compensationVoltage * compensationVoltage
-                - 255.86 * compensationVoltage * compensationVoltage
-                + 857.39 * compensationVoltage) * 0.5;
-  }
-  return tdsValue;
-}
-/*
- * Implementierung der Sensor-Funktionen
- */
 
 #include "sensors.h"
 #include <Arduino.h>
@@ -77,6 +17,14 @@ float readTDSSensor(float temperature) {
 
 // Unsere DEBUG Macros wieder aktivieren
 #include "config.h"
+#define TdsSensorPin A12            // Pin, an dem der TDS-Sensor angeschlossen ist
+#define VREF 5.0                    // Referenzspannung des ADC (in Volt)
+#define SCOUNT  30                  // Anzahl der Messwerte für Mittelwertbildung
+
+int analogBuffer[SCOUNT];           // Puffer für die ADC-Messwerte
+int analogBufferIndex = 0;
+float averageVoltage = 0, tdsValue = 0, temperature = 18; // Temperatur für Kompensation
+
 
 // ==============================================
 // GLOBALE VARIABLEN
@@ -84,14 +32,6 @@ float readTDSSensor(float temperature) {
 
 // OneWire temperatureSensor(TEMP_SENSOR_PIN);  // DEAKTIVIERT
 DHT dhtSensor(DHT_SENSOR_PIN, DHT11);
-bool lastRadiationState = HIGH;
-int radiationCounter = 0;
-unsigned long lastRadiationCheck = 0;
-int radiationClicksPerSecond = 0;
-int radiationClicksLastSecond = 0;  // Puffer für die letzte vollständige Sekunde
-int radiationClicks2SecSum = 0;    // Summe der letzten 2 Sekunden
-unsigned long lastRadiation2SecTime = 0;
-unsigned long lastRadiationSecond = 0;
 
 // ==============================================
 // DHT11 TEMPERATUR & LUFTFEUCHTIGKEIT
@@ -207,109 +147,36 @@ void printGasSensorValues(int* values) {
 }
 
 // ==============================================
-// RADIOAKTIVITÄTS-SENSOR (HOCHFREQUENZ-POLLING)
+// RADIOAKTIVITÄTS-SENSOR (INTERRUPT-BASIERT)
 // ==============================================
 
+#define RADIATION_INPUT_PIN 19  // Möglich: 2, 3, 18, 19, 20, 21
+
+volatile unsigned long tickCount = 0;    // Zähler, wird im Interrupt erhöht
+unsigned long lastEventTime = 0;         // Für Entprellung (in µs)
+unsigned long lastRadiationPrint = 0;    // Zeitstempel der letzten Ausgabe
+
+void countTick() {
+  unsigned long now = micros();
+  if (now - lastEventTime > 2000) {  // Entprellung: 2 ms
+    tickCount++;
+    lastEventTime = now;
+  }
+}
+
 void initRadiationSensor() {
-  pinMode(RADIATION_INPUT_PIN, INPUT);  // OHNE Pull-up wie im alten Code!
-  lastRadiationState = digitalRead(RADIATION_INPUT_PIN);
-  radiationCounter = 0;
-  
-  DEBUG_PRINT(F("Radioaktivitätssensor initialisiert auf Pin "));
-  DEBUG_PRINT(RADIATION_INPUT_PIN);
-  DEBUG_PRINT(F(". Initial state: "));
-  DEBUG_PRINTLN(lastRadiationState ? "HIGH" : "LOW");
+  pinMode(RADIATION_INPUT_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(RADIATION_INPUT_PIN), countTick, CHANGE);
 }
 
-void checkRadiationSensor() {
-  bool currentState = digitalRead(RADIATION_INPUT_PIN);
-  static unsigned long lastEventTime = 0;
-  static unsigned long lastDebugTime = 0;
-  unsigned long now = millis();
-  
-  // CPS-Berechnung: Klicks pro Sekunde zurücksetzen
-  static unsigned long lastSecondTime = 0;
-  static int lastCPS = 0;
-  if (now - lastSecondTime >= 1000) {
-    // Verschiebe die aktuelle Sekunde nach "letzte Sekunde"
-    radiationClicksLastSecond = lastCPS;
-    // Neue aktuelle Sekunde speichern
-    radiationClicksPerSecond = radiationCounter;
-    lastCPS = radiationCounter;
-    radiationCounter = 0;
-    lastSecondTime = now;
-    // 2-Sekunden-Summe berechnen
-    radiationClicks2SecSum = radiationClicksPerSecond + radiationClicksLastSecond;
-    lastRadiation2SecTime = now;
-  }
-  
-  // Debug-Status alle 5 Sekunden
-  if (now - lastDebugTime > 5000) {
-    DEBUG_PRINT(F("RAD Pin "));
-    DEBUG_PRINT(RADIATION_INPUT_PIN);
-    DEBUG_PRINT(F(": "));
-    DEBUG_PRINT(currentState ? "HIGH" : "LOW");
-    DEBUG_PRINT(F(" | Last: "));
-    DEBUG_PRINT(lastRadiationState ? "HIGH" : "LOW");
-    DEBUG_PRINT(F(" | CPS: "));
-    DEBUG_PRINTLN(radiationClicksPerSecond);
-    lastDebugTime = now;
-  }
-  
-  // JEDE FLANKE zählen (nicht nur HIGH->LOW) mit minimaler Entprellung
-  if (lastRadiationState != currentState) {
-    // 2ms Entprellung für schnelle Impulse
-    if (now - lastEventTime > 2) {
-      radiationCounter++;
-      lastEventTime = now;
-      
-      DEBUG_PRINT(F("*** RADIOAKTIV-IMPULS #"));
-      DEBUG_PRINT(radiationCounter);
-      DEBUG_PRINT(F(" ["));
-      DEBUG_PRINT(lastRadiationState ? "HIGH->LOW" : "LOW->HIGH");
-      DEBUG_PRINT(F("] Zeit: "));
-      DEBUG_PRINTLN(now);
-    }
-  }
-  
-  lastRadiationState = currentState;
+unsigned long getRadiationCountAndReset() {
+  noInterrupts();
+  unsigned long countCopy = tickCount;
+  tickCount = 0;
+  interrupts();
+  return countCopy;
 }
 
-int getRadiationCount() {
-  return radiationCounter;
-}
-
-int getRadiationClicksPerSecond() {
-  // Echte CPS zurückgeben, nicht Gesamtzähler
-  return radiationClicksPerSecond;
-}
-
-// Gibt die Summe der Klicks der letzten 2 Sekunden zurück
-int getRadiationClicksPer2Seconds() {
-  return radiationClicks2SecSum;
-
-}
-
-void resetRadiationCounter() {
-  radiationCounter = 0;
-  radiationClicksPerSecond = 0;
-  radiationClicksLastSecond = 0;
-  
-  DEBUG_PRINTLN(F("Radioaktivitätszähler zurückgesetzt"));
-}
-
-void printRadiationStats() {
-  DEBUG_PRINT(F("=== RADIOAKTIVITÄTS-STATISTIK ==="));
-  DEBUG_PRINT(F(" | CPS: "));
-  DEBUG_PRINT(radiationClicksPerSecond);
-  DEBUG_PRINT(F(" | Diese Sek: "));
-  DEBUG_PRINT(radiationCounter);
-  DEBUG_PRINT(F(" | Pin: "));
-  DEBUG_PRINT(digitalRead(RADIATION_INPUT_PIN) ? "HIGH" : "LOW");
-  DEBUG_PRINT(F(" | Zeit: "));
-  DEBUG_PRINT(millis());
-  DEBUG_PRINTLN(F("ms"));
-}
 
 // ==============================================
 // MIKROFON-SENSOREN (OPTIMIERT FÜR SOUND-ERKENNUNG)
@@ -438,6 +305,75 @@ void printLightLevel(int lightValue, float lightPercent) {
   }
 }
 
+
+// ==============================================
+// TDS SENSOR (WASSERQUALITÄT)
+// ==============================================
+
+// Beispielhafte Implementierung für TDS-Sensor (z.B. analog an Pin A12)
+
+
+
+// ==============================================
+// TDS SENSOR (WASSERQUALITÄT) - Integration für Hauptsystem
+// ==============================================
+
+// Median-Berechnung für stabile Messwerte
+int getMedianNum(int bArray[], int iFilterLen)
+{
+  int bTab[30];
+  for (byte i = 0; i < iFilterLen; i++)
+    bTab[i] = bArray[i];
+  int i, j, bTemp;
+  for (j = 0; j < iFilterLen - 1; j++)
+  {
+    for (i = 0; i < iFilterLen - j - 1; i++)
+    {
+      if (bTab[i] > bTab[i + 1])
+      {
+        bTemp = bTab[i];
+        bTab[i] = bTab[i + 1];
+        bTab[i + 1] = bTemp;
+      }
+    }
+  }
+  // Gibt den Medianwert zurück
+  if ((iFilterLen & 1) > 0)
+    bTemp = bTab[(iFilterLen - 1) / 2];
+  else
+    bTemp = (bTab[iFilterLen / 2] + bTab[iFilterLen / 2 - 1]) / 2;
+  return bTemp;
+}
+
+float readTDSSensor(float temperature) {
+  // TDS-Buffer und Index als static, damit sie zwischen Aufrufen erhalten bleiben
+  static int analogBuffer[30];
+  static int analogBufferIndex = 0;
+  static unsigned long lastSampleTime = 0;
+  static float lastTDSValue = 0;
+  static unsigned long lastCalcTime = 0;
+
+  // Sample alle 33ms
+  if (millis() - lastSampleTime >= 33) {
+    lastSampleTime = millis();
+    analogBuffer[analogBufferIndex] = analogRead(TdsSensorPin);
+    analogBufferIndex++;
+    if (analogBufferIndex >= 30) analogBufferIndex = 0;
+  }
+
+  // Nur alle 1s Median berechnen und Wert merken
+  if (millis() - lastCalcTime >= 1000) {
+    lastCalcTime = millis();
+    int analogBufferTemp[30];
+    for (int i = 0; i < 30; i++) analogBufferTemp[i] = analogBuffer[i];
+    float averageVoltage = getMedianNum(analogBufferTemp, 30) * (float)VREF / 1024.0;
+    float compensationCoefficient = 1.0 + 0.02 * (temperature - 25.0);
+    float compensationVolatge = averageVoltage / compensationCoefficient;
+    lastTDSValue = (133.42 * compensationVolatge * compensationVolatge * compensationVolatge - 255.86 * compensationVolatge * compensationVolatge + 857.39 * compensationVolatge) * 0.5;
+  }
+  return lastTDSValue;
+}
+
 // ==============================================
 // SENSOR-DIAGNOSE
 // ==============================================
@@ -484,8 +420,8 @@ void testAllSensors() {
   
   // Radioaktivität Test
   DEBUG_PRINT(F("Radioaktivität: "));
-  DEBUG_PRINT(getRadiationClicksPerSecond());
-  DEBUG_PRINTLN(F(" CPS - OK"));
+  DEBUG_PRINT(getRadiationCountAndReset());
+  DEBUG_PRINTLN(F(" Impulse (seit letztem Test) - OK"));
   
   DEBUG_PRINTLN(F("================================="));
 }

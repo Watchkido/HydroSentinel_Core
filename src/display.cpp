@@ -64,12 +64,6 @@ void displayPage1_Status() {
   char timeStr[20];
   bool rtcSuccess = readRTCData(&currentTime);
   
-  DEBUG_PRINT(F("RTC Success: "));
-  DEBUG_PRINT(rtcSuccess);
-  DEBUG_PRINT(F(", isValid: "));
-  DEBUG_PRINT(currentTime.isValid);
-  DEBUG_PRINT(F(", Hour: "));
-  DEBUG_PRINTLN(currentTime.hour);
   
   if (rtcSuccess && currentTime.isValid) {
     snprintf(timeStr, sizeof(timeStr), "Zeit: %02d:%02d:%02d", 
@@ -114,7 +108,8 @@ void displayPage3_Environment() {
   displayValue(0, "Licht:", lightPercent, "%");
   
   // Radioaktivität
-  int radiation = getRadiationCount();
+  // Radioaktivität: Wert aus neuer Logik holen
+  int radiation = getRadiationCountAndReset();
   displayValue(1, "Radiat:", radiation, "cps");
   
   display.display();

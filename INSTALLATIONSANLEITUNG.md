@@ -108,7 +108,8 @@ pio run --target upload
 Um die Ausgabe des Programms zu sehen:
 
 ```
-h
+pio device monitor
+pio device monitor -b 115200
 ```
 
 → Zeigt die Serial-Ausgaben deines Programms.
