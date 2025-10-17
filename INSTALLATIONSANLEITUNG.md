@@ -123,4 +123,4 @@ pio device monitor -b 115200
 
 ---
 
-**Fertig! Dein Arduino läuft jetzt mit der AirScout-Firmware.**
+**Fertig! Dein Arduino läuft jetzt mit der HydroSentinal-Firmware.**
