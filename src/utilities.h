@@ -52,7 +52,7 @@ void softReset();
 /**
  * @brief Führt umfassende Systemdiagnose und Gesundheitsprüfung durch.
  *
- * Überprüft alle kritischen Systemkomponenten (RAM, SD-Karte, RTC, GPS)
+ * Überprüft alle kritischen Systemkomponenten (RAM, SD-Karte, RTC)
  * und gibt Statusberichte aus. Empfiehlt ggf. Neustarts.
  */
 void systemCheck();
@@ -275,7 +275,6 @@ typedef enum {
   ERROR_NONE = 0,           ///< Kein Fehler, System funktioniert normal
   ERROR_SD_CARD = 1,        ///< SD-Karten-Fehler (nicht verfügbar, Schreibfehler)
   ERROR_RTC = 2,            ///< RTC-Fehler (Zeitmodul nicht erreichbar, Batterie leer)
-  ERROR_GPS = 3,            ///< GPS-Fehler (kein Signal, Kommunikationsfehler)
   ERROR_TEMPERATURE = 4,    ///< Temperatursensor-Fehler (DHT11 antwortet nicht)
   ERROR_MEMORY = 5,         ///< Speicherfehler (zu wenig RAM verfügbar)
   ERROR_SYSTEM = 6,         ///< Allgemeiner Systemfehler (Display, unbekannte Ursache)

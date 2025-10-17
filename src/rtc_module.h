@@ -113,32 +113,8 @@ void printRTCData(const RTCData* data);
  */
 void printCurrentTime();
 
-// GPS-Synchronisation
-/**
- * @brief Synchronisiert die RTC-Zeit mit GPS-Zeitinformationen.
- *
- * Verwendet verfügbare GPS-Zeitdaten zur automatischen Korrektation
- * der Echtzeituhr für höchste Genauigkeit.
- *
- * @return true wenn Synchronisation erfolgreich war, false wenn GPS-Zeit nicht verfügbar
- */
-bool syncRTCWithGPS();
 
-/**
- * @brief Setzt die RTC-Zeit basierend auf GPS-Zeitdaten.
- *
- * Direkte Zeitsetzung mit GPS-basierten Werten zur präzisen
- * Zeitsynchronisation.
- *
- * @param year Jahr aus GPS-Daten
- * @param month Monat aus GPS-Daten
- * @param day Tag aus GPS-Daten
- * @param hour Stunde aus GPS-Daten
- * @param minute Minute aus GPS-Daten
- * @param second Sekunde aus GPS-Daten
- * @return true wenn Zeit erfolgreich gesetzt wurde, false bei Fehlern
- */
-bool setRTCFromGPS(int year, int month, int day, int hour, int minute, int second);
+
 
 // Zeit-Hilfsfunktionen
 /**

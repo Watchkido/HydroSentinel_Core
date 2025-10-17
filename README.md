@@ -1,5 +1,6 @@
-# 🌱 Hydro-Balkonpflanzen Automatisierung & Luft-/Wasserqualitätsüberwachung
+# 🌱 HydroSentinel
 
+**Hydro-Balkonpflanzen Automatisierung & Luft-/Wasserqualitätsüberwachung**
 **Smartes Monitoring & Pflege für Hydrokultur-Balkonpflanzen**
 
 ---

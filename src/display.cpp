@@ -5,7 +5,6 @@
 
 #include "display.h"
 #include "sensors.h"
-#include "gps_module.h" 
 #include "rtc_module.h"
 
 // ==============================================
@@ -34,18 +33,7 @@ bool initDisplay() {
     DEBUG_PRINTLN(F("- SCL → Pin 21 (Arduino Mega)"));
     return false;
   }
-  
-  // Display löschen und Startmeldung anzeigen
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println(F("Umweltkontroll-"));
-  display.println(F("system"));
-  display.println();
-  display.println(F("Initialisiere..."));
-  display.display();
-  
+   
   DEBUG_PRINTLN(F("OLED Display erfolgreich initialisiert"));
   return true;
 }
@@ -169,38 +157,6 @@ void displayPage5_Audio() {
   display.display();
 }
 
-void displayPage6_GPS() {
-  clearDisplay();
-  displayTitle("6. GPS POSITION");
-  
-  // Zeige immer die letzten bekannten, gültigen GPS-Daten an
-  extern GPSData currentGPSData; // aus gps_module.cpp
-
-  DEBUG_PRINT(F("Display GPS: isValid: "));
-  DEBUG_PRINT(currentGPSData.isValid);
-  DEBUG_PRINT(F(", Sats: "));
-  DEBUG_PRINTLN(currentGPSData.satellites);
-
-  if (currentGPSData.isValid) {
-    displayText(0, "GPS: AKTIV");
-    char latStr[16], lonStr[16], satStr[16];
-    snprintf(latStr, sizeof(latStr), "Lat: %.4f", currentGPSData.latitude);
-    snprintf(lonStr, sizeof(lonStr), "Lon: %.4f", currentGPSData.longitude);
-    snprintf(satStr, sizeof(satStr), "Sats: %d", currentGPSData.satellites);
-    displayText(1, latStr);
-    displayText(2, lonStr);
-    displayText(3, satStr);
-  } else {
-    displayText(0, "GPS: Suche...");
-    displayText(1, "Lat: ---.----");
-    displayText(2, "Lon: ---.----");
-    char debugStr[16];
-    snprintf(debugStr, sizeof(debugStr), "Dbg:--/0");
-    displayText(3, debugStr);
-  }
-  
-  display.display();
-}
 
 // ==============================================
 // HILFSFUNKTIONEN
@@ -238,6 +194,6 @@ void nextDisplayPage() {
     case 2: displayPage3_Environment(); break;
     case 3: displayPage4_Gas(); break;
     case 4: displayPage5_Audio(); break;
-    case 5: displayPage6_GPS(); break;
+
   }
 }

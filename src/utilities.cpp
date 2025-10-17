@@ -1,11 +1,25 @@
+
+#include "config.h"
+#include "utilities.h"
+#include "rtc_module.h"
+#include <Arduino.h>
+// ==============================================
+// SYSTEM-INFO
+// ==============================================
+
+void printSystemInfo() {
+  //DEBUG_PRINTLN(F("=== UMWELTKONTROLLSYSTEM ==="));
+  //DEBUG_PRINTLN(F("Arduino Mega 2560"));
+  //DEBUG_PRINT(F(__DATE__));
+  //DEBUG_PRINT(F(" "));
+  //DEBUG_PRINTLN(F(__TIME__));
+  //DEBUG_PRINTLN(F("==========================="));
+}
 /*
  * Implementierung der Utilities-Funktionen
  */
 
-#include "utilities.h"
-#include "gps_module.h"
-#include "rtc_module.h"
-#include <Arduino.h>
+
 
 // ==============================================
 // GLOBALE VARIABLEN
@@ -17,33 +31,8 @@ SystemError lastError = ERROR_NONE;
 // SYSTEM-FUNKTIONEN
 // ==============================================
 
-void printSystemInfo() {
-  DEBUG_PRINTLN(F("=== UMWELTKONTROLLSYSTEM ==="));
-  DEBUG_PRINTLN(F("Arduino Mega 2560"));
-  DEBUG_PRINT(F("Freier RAM: "));
-  DEBUG_PRINT(getFreeRAM());
-  DEBUG_PRINTLN(F(" Bytes"));
-  
-  #if DEBUG_ENABLED
-    DEBUG_PRINT(F("Debug: AKTIVIERT"));
-  #else
-    DEBUG_PRINT(F("Debug: DEAKTIVIERT"));
-  #endif
-  DEBUG_PRINTLN();
-  
-  DEBUG_PRINT(F("Compile: "));
-  DEBUG_PRINT(F(__DATE__));
-  DEBUG_PRINT(F(" "));
-  DEBUG_PRINTLN(F(__TIME__));
-  DEBUG_PRINTLN(F("==========================="));
-}
-
 void printMemoryUsage() {
   unsigned int freeRAM = getFreeRAM();
-  DEBUG_PRINT(F("RAM: "));
-  DEBUG_PRINT(freeRAM);
-  DEBUG_PRINTLN(F(" Bytes"));
-  
   if (freeRAM < RAM_CRITICAL_THRESHOLD) {
     DEBUG_PRINTLN(F("KRITISCH: RAM-Mangel!"));
     reportError(ERROR_MEMORY, "Critical RAM");
@@ -67,24 +56,11 @@ void softReset() {
 
 void systemCheck() {
   printMemoryUsage();
-  
   unsigned int freeRAM = getFreeRAM();
   if (freeRAM < RAM_CRITICAL_THRESHOLD) {
     DEBUG_PRINTLN(F("KRITISCH: Neustart empfohlen!"));
     // Optional: Automatischer Reset bei kritischem RAM-Mangel
     // softReset();
-  }
-  
-  // GPS-RTC Synchronisation alle 30 Sekunden versuchen
-  static unsigned long lastSyncAttempt = 0;
-  if (isTimeElapsed(&lastSyncAttempt, 30000)) {  // Alle 30 Sekunden
-    #ifdef GPS_MODULE_H
-      if (isGPSConnected()) {
-        if (syncRTCWithGPS()) {
-          DEBUG_PRINTLN(F("RTC-GPS Synchronisation erfolgreich"));
-        }
-      }
-    #endif
   }
 }
 
@@ -260,3 +236,5 @@ void loadCalibrationData() {
   // Platzhalter: Kalibrierungsdaten aus EEPROM laden
   DEBUG_PRINTLN(F("Kalibrierungsdaten geladen."));
 }
+
+// Datei-Ende: ggf. fehlende schließende Klammer

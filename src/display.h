@@ -32,7 +32,6 @@ void displayPage2_Temperature(); // Temperatur + Luftfeuchtigkeit
 void displayPage3_Environment(); // Licht + Radioaktivität
 void displayPage4_Gas();         // Gas-Sensoren Übersicht
 void displayPage5_Audio();       // Mikrofon-Pegel
-void displayPage6_GPS();         // GPS Position
 
 // Hilfsfunktionen
 void displayTitle(const char* title);

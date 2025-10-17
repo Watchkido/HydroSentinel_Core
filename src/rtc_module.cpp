@@ -3,7 +3,6 @@
  */
 
 #include "rtc_module.h"
-#include "gps_module.h"
 #include <Arduino.h>
 
 // ==============================================
@@ -86,12 +85,12 @@ bool readRTCData(RTCData* data) {
   
   data->isValid = rtcRunning && timeValid;
   
-  DEBUG_PRINT(F("RTC: Running="));
-  DEBUG_PRINT(rtcRunning);
-  DEBUG_PRINT(F(", TimeValid="));
-  DEBUG_PRINT(timeValid);
-  DEBUG_PRINT(F(", Year="));
-  DEBUG_PRINTLN(data->year);
+  //DEBUG_PRINT(F("RTC: Running="));
+  //DEBUG_PRINT(rtcRunning);
+  //DEBUG_PRINT(F(", TimeValid="));
+  //DEBUG_PRINT(timeValid);
+  //DEBUG_PRINT(F(", Year="));
+  //DEBUG_PRINTLN(data->year);
   
   return data->isValid;
 }
@@ -182,62 +181,6 @@ bool isTimeValid(const RTCData* data) {
          data->hour <= 23 && data->minute <= 59 && data->second <= 59;
 }
 
-// ==============================================
-// GPS-SYNCHRONISATION
-// ==============================================
-
-bool setRTCFromGPS(int year, int month, int day, int hour, int minute, int second) {
-  // UTC zu lokaler Zeit (optional - hier ist UTC)
-  DateTime gpsTime(year, month, day, hour, minute, second);
-  rtcClock.adjust(gpsTime);
-  
-  DEBUG_PRINT(F("RTC mit GPS synchronisiert: "));
-  DEBUG_PRINT(day);
-  DEBUG_PRINT('.');
-  DEBUG_PRINT(month);
-  DEBUG_PRINT('.');
-  DEBUG_PRINT(year);
-  DEBUG_PRINT(' ');
-  DEBUG_PRINT(hour);
-  DEBUG_PRINT(':');
-  DEBUG_PRINT(minute);
-  DEBUG_PRINT(':');
-  DEBUG_PRINT(second);
-  DEBUG_PRINTLN(F(" UTC"));
-  
-  return true;
-}
-
-bool syncRTCWithGPS() {
-  // Benötigt gps_module.h Include (wird in der Hauptdatei gemacht)
-  #ifdef GPS_MODULE_H
-    // GPS-Zeit abrufen über TinyGPSPlus
-    extern TinyGPSPlus gpsParser;
-    
-    if (gpsParser.date.isValid() && gpsParser.time.isValid()) {
-      int year = gpsParser.date.year();
-      int month = gpsParser.date.month();
-      int day = gpsParser.date.day();
-      int hour = gpsParser.time.hour();
-      int minute = gpsParser.time.minute();
-      int second = gpsParser.time.second();
-      
-      // Plausibilitätsprüfung
-      if (year >= 2020 && year <= 2099 && month >= 1 && month <= 12) {
-        return setRTCFromGPS(year, month, day, hour, minute, second);
-      } else {
-        DEBUG_PRINTLN(F("GPS-Zeit ungültig, Synchronisation übersprungen"));
-        return false;
-      }
-    } else {
-      DEBUG_PRINTLN(F("GPS-Zeit nicht verfügbar"));
-      return false;
-    }
-  #else
-    DEBUG_PRINTLN(F("GPS-Modul nicht verfügbar"));
-    return false;
-  #endif
-}
 
 // ==============================================
 // ZEITZONE-FUNKTIONEN (MEZ/MESZ)

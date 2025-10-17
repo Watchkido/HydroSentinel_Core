@@ -9,7 +9,6 @@
 #include <SD.h>
 #include "config.h"
 #include "sensors.h"
-#include "gps_module.h"
 #include "rtc_module.h"
 
 // ==============================================
@@ -19,7 +18,7 @@
 /**
  * @brief Vollständiger Datensatz für einen Logging-Eintrag.
  *
- * Diese Struktur enthält alle Sensordaten, GPS-Informationen und
+ * Diese Struktur enthält alle Sensordaten und
  * Zeitstempel für einen kompletten Datenlogger-Eintrag.
  */
 struct LogEntry {
@@ -27,7 +26,6 @@ struct LogEntry {
 
   float temperature_dht;           ///< Temperatur vom DHT11-Sensor in °C
   float humidity;                  ///< Luftfeuchtigkeit vom DHT11-Sensor in %
-  GPSData gpsData;                 ///< Vollständige GPS-Informationen
   int gasSensors[9];              ///< Array mit allen 9 Gassensor-Werten (0-1023)
   int microphones[2];             ///< Array mit beiden Mikrofon-Pegeln (0-1023)
   int radiationCount;             ///< Aktueller Radioaktivitätszählerstand
@@ -122,11 +120,10 @@ bool logData(const LogEntry* entry);
  *
  * @param temperature_dht Temperaturwert vom DHT11-Sensor in °C
  * @param humidity Luftfeuchtigkeitswert in %
- * @param gps Zeiger auf GPS-Datenstruktur
  * @param rtc Zeiger auf RTC-Zeitdaten
  * @return true wenn Daten erfolgreich geloggt wurden, false bei Fehlern
  */
-bool logSensorData(float temperature_dht, float humidity, const GPSData* gps, const RTCData* rtc);
+bool logSensorData(float temperature_dht, float humidity, const RTCData* rtc);
 
 /**
  * @brief Formatiert einen LogEntry als lesbaren String.

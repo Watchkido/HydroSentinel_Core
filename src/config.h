@@ -17,6 +17,7 @@
 // ==============================================
 
 // Pin-Definitionen
+const uint8_t TDS_SENSOR_PIN = A12; // TDS Sensor (Wasserqualität)
 // const uint8_t TEMP_SENSOR_PIN = 8;        // OneWire Temperatursensor (DEAKTIVIERT)
 const uint8_t DHT_SENSOR_PIN = 22;        // DHT11 Temperatur & Luftfeuchtigkeit
 const uint8_t SD_CHIP_SELECT = 10;        // SD-Karte CS Pin
@@ -28,10 +29,8 @@ const uint8_t OLED_SCREEN_HEIGHT = 64;    // OLED Display Höhe in Pixel
 const int8_t OLED_RESET_PIN = -1;         // Reset Pin (-1 = shared Arduino reset pin)
 const uint8_t OLED_I2C_ADDRESS = 0x3C;    // Standard I2C Adresse für 128x64 OLED
 
-// GPS Hardware Serial (Arduino Mega)
-// RX1 (Pin 19) - GPS TX, TX1 (Pin 18) - GPS RX
-const uint32_t GPS_BAUD = 9600;
 const uint32_t SERIAL_BAUD = 9600;
+#define GPS_BAUD 9600
 
 // Gas-Sensoren (MQ-Serie) - Analoge Pins
 const uint8_t MQ2_PIN = A0;   // Methan, Butan, LPG, Rauch
@@ -72,12 +71,12 @@ const uint8_t MAX_MICROPHONES = 2;
 const uint8_t CSV_BUFFER_SIZE = 128;       // Für CSV-Zeilen
 
 // ==============================================
-// GPS REFERENZPUNKT
+// STANDORT
 // ==============================================
 
 const double HOME_LAT = 49.352622;  // QTH Breitengrad
 const double HOME_LON = 8.165440;   // QTH Längengrad
-const float GPS_INVALID_F = 1000000.0;
+
 
 // ==============================================
 // DATEISYSTEM

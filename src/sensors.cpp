@@ -1,3 +1,65 @@
+// ==============================================
+// TDS SENSOR (WASSERQUALITÄT)
+// ==============================================
+
+#define TDS_VREF 5.0
+#define TDS_SCOUNT 30
+
+static int tdsAnalogBuffer[TDS_SCOUNT];
+static int tdsAnalogBufferTemp[TDS_SCOUNT];
+static int tdsAnalogBufferIndex = 0;
+
+void initTDSSensor() {
+  pinMode(TDS_SENSOR_PIN, INPUT);
+  tdsAnalogBufferIndex = 0;
+}
+
+float getMedianNum(int bArray[], int iFilterLen) {
+  int bTab[iFilterLen];
+  for (byte i = 0; i < iFilterLen; i++)
+    bTab[i] = bArray[i];
+  int i, j, bTemp;
+  for (j = 0; j < iFilterLen - 1; j++) {
+    for (i = 0; i < iFilterLen - j - 1; i++) {
+      if (bTab[i] > bTab[i + 1]) {
+        bTemp = bTab[i];
+        bTab[i] = bTab[i + 1];
+        bTab[i + 1] = bTemp;
+      }
+    }
+  }
+  if ((iFilterLen & 1) > 0)
+    bTemp = bTab[(iFilterLen - 1) / 2];
+  else
+    bTemp = (bTab[iFilterLen / 2] + bTab[iFilterLen / 2 - 1]) / 2;
+  return bTemp;
+}
+
+float readTDSSensor(float temperature) {
+  static unsigned long lastSampleTime = 0;
+  if (millis() - lastSampleTime > 40U) {
+    lastSampleTime = millis();
+    tdsAnalogBuffer[tdsAnalogBufferIndex] = analogRead(TDS_SENSOR_PIN);
+    tdsAnalogBufferIndex++;
+    if (tdsAnalogBufferIndex == TDS_SCOUNT)
+      tdsAnalogBufferIndex = 0;
+  }
+
+  static unsigned long lastCalcTime = 0;
+  static float tdsValue = 0;
+  if (millis() - lastCalcTime > 800U) {
+    lastCalcTime = millis();
+    for (int i = 0; i < TDS_SCOUNT; i++)
+      tdsAnalogBufferTemp[i] = tdsAnalogBuffer[i];
+    float averageVoltage = getMedianNum(tdsAnalogBufferTemp, TDS_SCOUNT) * (float)TDS_VREF / 1024.0;
+    float compensationCoefficient = 1.0 + 0.02 * (temperature - 25.0);
+    float compensationVoltage = averageVoltage / compensationCoefficient;
+    tdsValue = (133.42 * compensationVoltage * compensationVoltage * compensationVoltage
+                - 255.86 * compensationVoltage * compensationVoltage
+                + 857.39 * compensationVoltage) * 0.5;
+  }
+  return tdsValue;
+}
 /*
  * Implementierung der Sensor-Funktionen
  */

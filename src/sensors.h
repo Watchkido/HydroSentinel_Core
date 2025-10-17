@@ -20,6 +20,8 @@ extern unsigned long lastRadiationCheck; ///< Zeitstempel der letzten Radioaktiv
 
 // ==============================================
 // FUNKTIONS-DEKLARATIONEN
+void initTDSSensor();
+float readTDSSensor(float temperature = 25.0);
 // ==============================================
 
 // DHT11 Temperatur & Luftfeuchtigkeit

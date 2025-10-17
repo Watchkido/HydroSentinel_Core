@@ -3,7 +3,6 @@
  * Arduino Mega 2560 Projekt
  * 
  * Modulare Architektur für Datensammlung und -protokollierung:
- * - GPS-Positionierung
  * - Gas-Sensoren (MQ-Serie)
  * - Radioaktivitätsdetektor
  * - SD-Karten Datenlogger
@@ -25,13 +24,13 @@
 #include <Wire.h>
 // #include <OneWire.h>  // DEAKTIVIERT
 #include "RTClib.h"
-#include <TinyGPSPlus.h>
+
 
 // Projekt-Module
 #include "config.h"
 #include "utilities.h"
 #include "sensors.h"
-#include "gps_module.h"
+
 #include "rtc_module.h"
 #include "data_logger.h"
 #include "display.h"  // OLED Display Modul
@@ -76,6 +75,7 @@ void setup() {
 }
 
 void initializeSystem() {
+  initTDSSensor();
   bool systemOK = true;
   
   DEBUG_PRINTLN(F("Initialisiere System..."));
@@ -92,14 +92,7 @@ void initializeSystem() {
     systemOK = false;
   }
   
-  // 3. GPS initialisieren
-  if (!initGPS()) {
-    reportError(ERROR_GPS, "GPS Initialisierung fehlgeschlagen");
-    // GPS ist nicht kritisch, System kann weiterlaufen
-  } else {
-    // GPS läuft now non-blocking - Synchronisation erfolgt in loop()
-    DEBUG_PRINTLN(F("GPS initialisiert - Synchronisation läuft non-blocking"));
-  }
+
   
   // 4. Sensoren initialisieren (non-blocking)
   // Starte DHT11 Aufwärmphase
@@ -144,25 +137,12 @@ void initializeSystem() {
 // ==============================================
 
 void loop() {
-  // GPS kontinuierlich aktualisieren (immer im Loop!)
-  updateGPS();
-  // Debug: Zeige an, ob neue GPS-Daten im Buffer sind
+
   if (Serial1.available() > 0) {
     DEBUG_PRINT(F("[DEBUG] Serial1.available(): "));
     DEBUG_PRINTLN(Serial1.available());
   }
 
-  // GPS-Daten immer nach updateGPS() holen
-  static GPSData gpsDataLoop;
-  readGPSData(&gpsDataLoop);
-
-  // GPS-RTC Synchronisation (non-blocking, alle 30 Sekunden versuchen)
-  static unsigned long lastGPSSyncTime = 0;
-  if (isTimeElapsed(&lastGPSSyncTime, 30000)) {
-    if (syncRTCWithGPS()) {
-      DEBUG_PRINTLN(F("RTC-GPS Synchronisation erfolgreich"));
-    }
-  }
 
   // HOCHFREQUENZ: Radioaktivitäts-Sensor prüfen (für 6+ CPS)
   // WICHTIG: Läuft jeden Loop-Durchgang für maximale Genauigkeit
@@ -220,12 +200,12 @@ void performDataLogging() {
   lastTime = currentTime;
   
   // Debug: Logging-Zeitpunkt anzeigen
-  DEBUG_PRINT(F("Logging: "));
-  DEBUG_PRINT(currentTime.hour);
-  DEBUG_PRINT(F(":"));
-  DEBUG_PRINT(currentTime.minute);
-  DEBUG_PRINT(F(":"));
-  DEBUG_PRINTLN(currentTime.second);
+  //DEBUG_PRINT(F("Logging: "));
+  //DEBUG_PRINT(currentTime.hour);
+  //DEBUG_PRINT(F(":"));
+  //DEBUG_PRINT(currentTime.minute);
+  //DEBUG_PRINT(F(":"));
+  //DEBUG_PRINTLN(currentTime.second);
   
  
   // float celsius = 0.0, fahrenheit = 0.0;
@@ -243,10 +223,6 @@ void performDataLogging() {
     humidity = 0.0;
   }
   
-  // GPS-Daten abrufen
-  GPSData gpsData;
-  readGPSData(&gpsData);
-  
   // Daten protokollieren mit Retry-Mechanismus (non-blocking)
   if (isSDCardAvailable()) {
     bool logSuccess = false;
@@ -257,7 +233,7 @@ void performDataLogging() {
         // Kein delay - sofortiger Retry
       }
       
-      logSuccess = logSensorData(dht_temperature, humidity, &gpsData, &currentTime);
+      logSuccess = logSensorData(dht_temperature, humidity, &currentTime);
       
       if (!logSuccess) {
         DEBUG_PRINT(F("FEHLER: Datenprotokollierung fehlgeschlagen! Versuch: "));
@@ -270,7 +246,7 @@ void performDataLogging() {
     }
   } else {
     // Fallback: Nur Serial-Ausgabe
-    printDataToSerial(dht_temperature, humidity, &gpsData, &currentTime);
+    printDataToSerial(dht_temperature, humidity, &currentTime);
   }
 }
 
@@ -305,25 +281,19 @@ void performSensorReadings() {
   int microphones[2];
   readAllMicrophones(microphones);
   
-  DEBUG_PRINT(F("Mikrofone: "));
-  DEBUG_PRINT(microphones[0]);
-  DEBUG_PRINT(F(", "));
-  DEBUG_PRINTLN(microphones[1]);
+  //DEBUG_PRINT(F("Mikrofone: "));
+  //DEBUG_PRINT(microphones[0]);
+  //DEBUG_PRINT(F(", "));
+  //DEBUG_PRINTLN(microphones[1]);
   
   // Radioaktivität der letzten 2 Sekunden aufsummieren
   int radiationCPS = getRadiationClicksPer2Seconds();
-  DEBUG_PRINT(F("Radioaktivität: "));
-  DEBUG_PRINT(radiationCPS);
-  DEBUG_PRINTLN(F(" Klicks/s"));
-  
-  // GPS-Daten anzeigen
-  GPSData gpsData;
-  if (readGPSData(&gpsData)) {
-    printGPSData(&gpsData);
-  }
+  //DEBUG_PRINT(F("Radioaktivität: "));
+  //DEBUG_PRINT(radiationCPS);
+  //DEBUG_PRINTLN(F(" Klicks/s"));
   
   // KOMPAKTE ÜBERSICHTS-AUSGABE für bessere Lesbarkeit
-  printCompactStatus(dht_temp, humidity, lightLevel, radiationCPS, &gpsData, gasSensors, microphones);
+  printCompactStatus(dht_temp, humidity, lightLevel, radiationCPS, gasSensors, microphones);
   
   // Detaillierte Radioaktivitäts-Statistik alle 5 Sekunden
   static unsigned long lastStatsTime = 0;
@@ -333,7 +303,7 @@ void performSensorReadings() {
   }
 }
 
-void printDataToSerial(float dht_temp, float humidity, const GPSData* gps, const RTCData* rtc) {
+void printDataToSerial(float dht_temp, float humidity, const RTCData* rtc) {
   // Kompakte Serial-Ausgabe
   DEBUG_PRINT(F("Daten: "));
   
@@ -352,21 +322,6 @@ void printDataToSerial(float dht_temp, float humidity, const GPSData* gps, const
   Serial.print(humidity, 1);
   DEBUG_PRINT(F("% ; "));
   
-  // GPS mit erweiterten Daten
-  if (gps->isValid) {
-    Serial.print(gps->latitude, 6);
-    DEBUG_PRINT(F(","));
-    Serial.print(gps->longitude, 6);
-    DEBUG_PRINT(F(" Alt:"));
-    Serial.print(gps->altitude, 1);
-    DEBUG_PRINT(F("m "));
-    Serial.print(gps->speedKmh, 1);
-    DEBUG_PRINT(F("km/h "));
-    Serial.print(gps->course, 0);
-    DEBUG_PRINT(F("°"));
-  } else {
-    DEBUG_PRINT(F("--,-- GPS:N/A"));
-  }
   
   // Zeit
   DEBUG_PRINT(F(" ; "));
@@ -380,49 +335,34 @@ void printDataToSerial(float dht_temp, float humidity, const GPSData* gps, const
   DEBUG_PRINTLN(rtc->second);
 }
 
-void printCompactStatus(float temp, float hum, int light, int rad, const GPSData* gps, int* gas, int* mic) {
-  DEBUG_PRINTLN(F("========== SENSOR STATUS =========="));
+void printCompactStatus(float temp, float hum, int light, int rad, int* gas, int* mic) {
+  //DEBUG_PRINTLN(F("========== SENSOR STATUS =========="));
   
   // Zeile 1: Umweltdaten
-  DEBUG_PRINT(F("UMWELT: "));
-  Serial.print(temp, 1);
-  DEBUG_PRINT(F("°C "));
-  Serial.print(hum, 1);
-  DEBUG_PRINT(F("% | Licht: "));
-  DEBUG_PRINT(light);
-  DEBUG_PRINT(F(" | RAD: "));
-  DEBUG_PRINT(rad);
-  DEBUG_PRINTLN(F(" CPS"));
+  //DEBUG_PRINT(F("UMWELT: "));
+  //Serial.print(temp, 1);
+  //DEBUG_PRINT(F("°C "));
+  //Serial.print(hum, 1);
+ // DEBUG_PRINT(F("% | Licht: "));
+  //DEBUG_PRINT(light);
+  //DEBUG_PRINT(F(" | RAD: "));
+  //DEBUG_PRINT(rad);
+  //DEBUG_PRINTLN(F(" CPS"));
   
-  // Zeile 2: GPS kompakt
-  DEBUG_PRINT(F("GPS: "));
-  if (gps->isValid) {
-    Serial.print(gps->latitude, 4);
-    DEBUG_PRINT(F(","));
-    Serial.print(gps->longitude, 4);
-    DEBUG_PRINT(F(" ("));
-    Serial.print(gps->speedKmh, 1);
-    DEBUG_PRINT(F("km/h "));
-    Serial.print(gps->course, 0);
-    DEBUG_PRINT(F("°) Sats:"));
-    DEBUG_PRINTLN(gps->satellites);
-  } else {
-    DEBUG_PRINTLN(F("NICHT VERFÜGBAR"));
-  }
   
   // Zeile 3: Gas-Sensoren kompakt
-  DEBUG_PRINT(F("GAS: MQ2:"));
-  DEBUG_PRINT(gas[0]);
-  DEBUG_PRINT(F(" MQ7:"));
-  DEBUG_PRINT(gas[5]);
-  DEBUG_PRINT(F(" MQ135:"));
-  DEBUG_PRINT(gas[8]);
-  DEBUG_PRINT(F(" | MIC: "));
-  DEBUG_PRINT(mic[0]);
-  DEBUG_PRINT(F("/"));
-  DEBUG_PRINTLN(mic[1]);
+  //DEBUG_PRINT(F("GAS: MQ2:"));
+  //DEBUG_PRINT(gas[0]);
+  //DEBUG_PRINT(F(" MQ7:"));
+  //DEBUG_PRINT(gas[5]);
+  //DEBUG_PRINT(F(" MQ135:"));
+  //DEBUG_PRINT(gas[8]);
+  //DEBUG_PRINT(F(" | MIC: "));
+  //DEBUG_PRINT(mic[0]);
+  //DEBUG_PRINT(F("/"));
+  //DEBUG_PRINTLN(mic[1]);
   
-  DEBUG_PRINTLN(F("=================================="));
+  //DEBUG_PRINTLN(F("=================================="));
 }
 
 // ==============================================
@@ -486,8 +426,6 @@ void printSystemStatus() {
   DEBUG_PRINT(getSystemUptime() / 1000);
   DEBUG_PRINTLN(F(" Sekunden"));
   
-  DEBUG_PRINT(F("GPS: "));
-  DEBUG_PRINTLN(isGPSConnected() ? F("OK") : F("FEHLER"));
   
   DEBUG_PRINT(F("RTC: "));
   DEBUG_PRINTLN(isRTCRunning() ? F("OK") : F("FEHLER"));
